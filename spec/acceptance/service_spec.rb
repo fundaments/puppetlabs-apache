@@ -1,21 +1,18 @@
-# frozen_string_literal: true
-
 require 'spec_helper_acceptance'
 
 describe 'apache::service class' do
   describe 'adding dependencies in between the base class and service class' do
     let(:pp) do
-      <<-MANIFEST
+      <<-EOS
         class { 'apache': }
         file { '/tmp/test':
           require => Class['apache'],
           notify  => Class['apache::service'],
         }
-      MANIFEST
+      EOS
     end
 
-    it 'behaves idempotently' do
-      idempotent_apply(pp)
-    end
+    # Run it twice and test for idempotency
+    it_behaves_like "a idempotent resource"
   end
 end

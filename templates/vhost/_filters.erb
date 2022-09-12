@@ -1,8 +1,10 @@
-<% unless @filters.empty? -%>
+<% if @filters and ! @filters.empty? -%>
 
   ## Filter module rules
   ## as per http://httpd.apache.org/docs/2.2/mod/mod_filter.html
-  <%- @filters.each do |filter| -%>
+  <%- Array(@filters).each do |filter| -%>
+    <%- if filter != '' -%>
   <%= filter %>
+    <%- end -%>
   <%- end -%>
 <% end -%>

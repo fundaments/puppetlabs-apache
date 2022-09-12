@@ -1,26 +1,33 @@
-# @summary
-#   Try to automatically detect the version by OS
+# Class: apache::version
 #
-# @api private
-class apache::version (
-  Optional[String] $scl_httpd_version = undef,
-  Optional[String] $scl_php_version   = undef,
-) {
-  case $facts['os']['family'] {
+# Try to automatically detect the version by OS
+#
+class apache::version {
+  # This will be 5 or 6 on RedHat, 6 or wheezy on Debian, 12 or quantal on Ubuntu, etc.
+  $osr_array = split($::operatingsystemrelease,'[\/\.]')
+  $distrelease = $osr_array[0]
+  if ! $distrelease {
+    fail("Class['apache::version']: Unparsable \$::operatingsystemrelease: ${::operatingsystemrelease}")
+  }
+
+  case $::osfamily {
     'RedHat': {
-      if $scl_httpd_version {
-        $default = $scl_httpd_version
-      }
-      elsif ($facts['os']['name'] == 'Amazon' and $facts['os']['release']['major'] == '2') {
-        $default = '2.4'
-      } elsif $facts['os']['name'] == 'Fedora' or versioncmp($facts['os']['release']['major'], '7') >= 0 {
+      if ($::operatingsystem == 'Amazon') {
+        $default = '2.2'
+      } elsif ($::operatingsystem == 'Fedora' and versioncmp($distrelease, '18') >= 0) or ($::operatingsystem != 'Fedora' and versioncmp($distrelease, '7') >= 0) {
         $default = '2.4'
       } else {
         $default = '2.2'
       }
     }
     'Debian': {
-      $default = '2.4'
+      if $::operatingsystem == 'Ubuntu' and versioncmp($::operatingsystemrelease, '13.10') >= 0 {
+        $default = '2.4'
+      } elsif $::operatingsystem == 'Debian' and versioncmp($distrelease, '8') >= 0 {
+        $default = '2.4'
+      } else {
+        $default = '2.2'
+      }
     }
     'FreeBSD': {
       $default = '2.4'
@@ -29,14 +36,14 @@ class apache::version (
       $default = '2.4'
     }
     'Suse': {
-      if ($facts['os']['name'] == 'SLES' and versioncmp($facts['os']['release']['major'], '12') >= 0) or ($facts['os']['name'] == 'OpenSuSE' and versioncmp($facts['os']['release']['major'], '42') >= 0) {
+      if $::operatingsystem == 'SLES' and $::operatingsystemrelease >= '12' {
         $default = '2.4'
       } else {
         $default = '2.2'
       }
     }
     default: {
-      fail("Class['apache::version']: Unsupported osfamily: ${$facts['os']['family']}")
+      fail("Class['apache::version']: Unsupported osfamily: ${::osfamily}")
     }
   }
 }

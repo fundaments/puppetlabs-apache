@@ -1,58 +1,56 @@
-# frozen_string_literal: true
-
 require 'spec_helper'
 
-describe 'apache::balancer', type: :define do
+describe 'apache::balancer', :type => :define do
   let :title do
     'myapp'
   end
-
-  include_examples 'Debian 11'
-
+  let :facts do
+    {
+      :osfamily               => 'Debian',
+      :operatingsystem        => 'Debian',
+      :operatingsystemrelease => '6',
+      :lsbdistcodename        => 'squeeze',
+      :id                     => 'root',
+      :concat_basedir         => '/dne',
+      :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      :kernel                 => 'Linux',
+      :is_pe                  => false,
+    }
+  end
   describe 'apache pre_condition with defaults' do
     let :pre_condition do
       'include apache'
     end
-
-    describe 'works when only declaring resource title' do
-      it { is_expected.to contain_concat('apache_balancer_myapp') }
-      it { is_expected.to contain_concat__fragment('00-myapp-header').with_content(%r{^<Proxy balancer://myapp>$}) }
-    end
-    describe 'accept a target parameter and use it' do
+    describe "accept a target parameter and use it" do
       let :params do
         {
-          target: '/tmp/myapp.conf',
+          :target => '/tmp/myapp.conf'
         }
       end
-
-      it {
-        is_expected.to contain_concat('apache_balancer_myapp').with(path: '/tmp/myapp.conf')
-      }
+      it { should contain_concat('apache_balancer_myapp').with({
+        :path => "/tmp/myapp.conf",
+      })}
+      it { should_not contain_apache__mod('slotmem_shm') }
+      it { should_not contain_apache__mod('lbmethod_byrequests') }
     end
-    describe 'accept an options parameter and use it' do
-      let :params do
-        {
-          options: ['timeout=0', 'nonce=none'],
-        }
-      end
-
-      it {
-        is_expected.to contain_concat__fragment('00-myapp-header').with_content(
-          %r{^<Proxy balancer://myapp timeout=0 nonce=none>$},
-        )
-      }
+    context "on jessie" do
+      let(:facts) { super().merge({
+        :operatingsystemrelease => '8',
+        :lsbdistcodename        => 'jessie',
+      }) }
+      it { should contain_apache__mod('slotmem_shm') }
+      it { should contain_apache__mod('lbmethod_byrequests') }
     end
   end
-  describe 'apache pre_condition with conf_dir set' do
+  describe 'apache pre_condition with conf_dir set' do 
     let :pre_condition do
       'class{"apache":
           confd_dir => "/junk/path"
        }'
     end
-
-    it {
-      is_expected.to contain_concat('apache_balancer_myapp').with(path: '/junk/path/balancer_myapp.conf')
-    }
+    it { should contain_concat('apache_balancer_myapp').with({
+      :path => "/junk/path/balancer_myapp.conf",
+    })}
   end
 
   describe 'with lbmethod and with apache::mod::proxy_balancer::apache_version set' do
@@ -63,13 +61,12 @@ describe 'apache::balancer', type: :define do
     end
     let :params do
       {
-        proxy_set: {
+        :proxy_set => {
           'lbmethod' => 'bytraffic',
         },
       }
     end
-
-    it { is_expected.to contain_apache__mod('slotmem_shm') }
-    it { is_expected.to contain_apache__mod('lbmethod_bytraffic') }
+    it { should contain_apache__mod('slotmem_shm') }
+    it { should contain_apache__mod('lbmethod_bytraffic') }
   end
 end

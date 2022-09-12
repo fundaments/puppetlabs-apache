@@ -1,10 +1,7 @@
 <IfModule mod_security2.c>
     # Default recommended configuration
     SecRuleEngine <%= @modsec_secruleengine %>
-    SecRequestBodyAccess <%= @secrequestbodyaccess %>
-  <%- if @custom_rules -%>
-    Include <%= @modsec_dir %>/custom_rules/*.conf
-  <%- end -%>
+    SecRequestBodyAccess On
     SecRule REQUEST_HEADERS:Content-Type "text/xml" \
       "id:'200000',phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML"
     SecRequestBodyLimit <%= @secrequestbodylimit %>
@@ -40,7 +37,7 @@
     SecRule TX:/^MSC_/ "!@streq 0" \
       "id:'200004',phase:2,t:none,deny,msg:'ModSecurity internal error flagged: %{MATCHED_VAR_NAME}'"
 
-    SecResponseBodyAccess <%= @secresponsebodyaccess %>
+    SecResponseBodyAccess Off
     SecResponseBodyMimeType text/plain text/html text/xml
     SecResponseBodyLimit 524288
     SecResponseBodyLimitAction ProcessPartial
@@ -48,10 +45,7 @@
     SecAuditEngine RelevantOnly
     SecAuditLogRelevantStatus "<%= @audit_log_relevant_status %>"
     SecAuditLogParts <%= @audit_log_parts %>
-    SecAuditLogType <%= @audit_log_type %>
-    <%- if @audit_log_storage_dir -%>
-    SecAuditLogStorageDir <%= @audit_log_storage_dir %>
-    <%- end -%>
+    SecAuditLogType Serial
     SecArgumentSeparator &
     SecCookieFormat 0
 <%- if scope.lookupvar('::osfamily') == 'Debian' -%>

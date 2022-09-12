@@ -1,45 +1,13 @@
-# @summary
-#   Installs MPM `mod_itk`.
-# 
-# @param startservers
-#   Number of child server processes created on startup.
-#
-# @param minspareservers
-#   Minimum number of idle child server processes.
-#
-# @param maxspareservers
-#   Maximum number of idle child server processes.
-#
-# @param serverlimit
-#   Maximum configured value for `MaxRequestWorkers` for the lifetime of the Apache httpd process.
-#
-# @param maxclients
-#   Limit on the number of simultaneous requests that will be served.
-#
-# @param maxrequestsperchild
-#   Limit on the number of connections that an individual child server process will handle.
-#
-# @param enablecapabilities
-#   Drop most root capabilities in the parent process, and instead run as the user given by the User/Group directives with some extra
-#   capabilities (in particular setuid). Somewhat more secure, but can cause problems when serving from filesystems that do not honor 
-#   capabilities, such as NFS.
-#
-# @param apache_version
-#   Used to verify that the Apache version you have requested is compatible with the module.
-# 
-# @see http://mpm-itk.sesse.net for additional documentation.
-# @note Unsupported platforms: CentOS: 8; RedHat: 8, 9; SLES: all
 class apache::mod::itk (
-  Integer $startservers                                  = 8,
-  Integer $minspareservers                               = 5,
-  Integer $maxspareservers                               = 20,
-  Integer $serverlimit                                   = 256,
-  Integer $maxclients                                    = 256,
-  Integer $maxrequestsperchild                           = 4000,
-  Optional[Variant[Boolean, String]] $enablecapabilities = undef,
-  Optional[String] $apache_version                       = undef,
+  $startservers        = '8',
+  $minspareservers     = '5',
+  $maxspareservers     = '20',
+  $serverlimit         = '256',
+  $maxclients          = '256',
+  $maxrequestsperchild = '4000',
+  $apache_version      = undef,
 ) {
-  include apache
+  include ::apache
 
   $_apache_version = pick($apache_version, $apache::apache_version)
 
@@ -55,13 +23,13 @@ class apache::mod::itk (
     }
   } else {
     # prefork is a requirement for itk in 2.4; except on FreeBSD and Gentoo, which are special
-    if $facts['os']['family'] =~ /^(FreeBSD|Gentoo)/ {
+    if $::osfamily =~ /^(FreeBSD|Gentoo)/ {
       if defined(Class['apache::mod::prefork']) {
         fail('May not include both apache::mod::itk and apache::mod::prefork on the same node')
       }
     } else {
       if ! defined(Class['apache::mod::prefork']) {
-        include apache::mod::prefork
+        include ::apache::mod::prefork
       }
     }
   }
@@ -70,8 +38,8 @@ class apache::mod::itk (
   }
   File {
     owner => 'root',
-    group => $apache::params::root_group,
-    mode  => $apache::file_mode,
+    group => $::apache::params::root_group,
+    mode  => $::apache::file_mode,
   }
 
   # Template uses:
@@ -81,22 +49,22 @@ class apache::mod::itk (
   # - $serverlimit
   # - $maxclients
   # - $maxrequestsperchild
-  file { "${apache::mod_dir}/itk.conf":
+  file { "${::apache::mod_dir}/itk.conf":
     ensure  => file,
-    mode    => $apache::file_mode,
+    mode    => $::apache::file_mode,
     content => template('apache/mod/itk.conf.erb'),
-    require => Exec["mkdir ${apache::mod_dir}"],
-    before  => File[$apache::mod_dir],
+    require => Exec["mkdir ${::apache::mod_dir}"],
+    before  => File[$::apache::mod_dir],
     notify  => Class['apache::service'],
   }
 
-  case $facts['os']['family'] {
+  case $::osfamily {
     'redhat': {
       package { 'httpd-itk':
         ensure => present,
       }
       if versioncmp($_apache_version, '2.4') >= 0 {
-        ::apache::mpm { 'itk':
+        ::apache::mpm{ 'itk':
           apache_version => $_apache_version,
         }
       }
@@ -112,7 +80,7 @@ class apache::mod::itk (
       }
     }
     'debian', 'freebsd': {
-      apache::mpm { 'itk':
+      apache::mpm{ 'itk':
         apache_version => $_apache_version,
       }
     }
@@ -122,7 +90,7 @@ class apache::mod::itk (
       }
     }
     default: {
-      fail("Unsupported osfamily ${$facts['os']['family']}")
+      fail("Unsupported osfamily ${::osfamily}")
     }
   }
 }

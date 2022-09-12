@@ -1,50 +1,60 @@
-# frozen_string_literal: true
-
 require 'spec_helper_acceptance'
 
-case os[:family]
-when 'debian', 'ubuntu'
+case fact('osfamily')
+when 'Debian'
   service_name = 'apache2'
-  variant = :prefork
-when 'redhat'
-  unless %r{^5}.match?(os[:release])
-    variant = (os[:release].to_i >= 7) ? :prefork : :itk_only
-    service_name = 'httpd'
+  majrelease = fact('operatingsystemmajrelease')
+  if ['6', '7', '10.04', '12.04'].include?(majrelease)
+    variant = :itk_only
+  else
+    variant = :prefork
   end
-when 'freebsd'
+when 'RedHat'
+  unless fact('operatingsystemmajrelease') == '5'
+    service_name = 'httpd'
+    majrelease = fact('operatingsystemmajrelease')
+    if ['6'].include?(majrelease)
+      variant = :itk_only
+    else
+      variant = :prefork
+    end
+  end
+when 'FreeBSD'
   service_name = 'apache24'
+  majrelease = fact('operatingsystemmajrelease')
   variant = :prefork
 end
 
-# IAC-787: The http-itk mod package is not available in any of the standard RHEL/CentOS 8.x repos. Disable this test
-# on those platforms until we can find a suitable source for this package.
-describe 'apache::mod::itk class', if: service_name && mod_supported_on_platform?('apache::mod::itk') do
+describe 'apache::mod::itk class', :if => service_name do
   describe 'running puppet code' do
+    # Using puppet_apply as a helper
     let(:pp) do
       case variant
-      when :prefork
-        <<-MANIFEST
+        when :prefork
+          <<-EOS
             class { 'apache':
               mpm_module => 'prefork',
             }
             class { 'apache::mod::itk': }
-          MANIFEST
-      when :itk_only
-        <<-MANIFEST
+          EOS
+        when :itk_only
+          <<-EOS
             class { 'apache':
               mpm_module => 'itk',
             }
-          MANIFEST
-      end
+          EOS
+        end
     end
-
-    it 'behaves idempotently' do
-      idempotent_apply(pp)
-    end
+    # Run it twice and test for idempotency
+    it_behaves_like "a idempotent resource"
   end
 
   describe service(service_name) do
     it { is_expected.to be_running }
-    it { is_expected.to be_enabled }
+    if (fact('operatingsystem') == 'Debian' && fact('operatingsystemmajrelease') == '8')
+      pending 'Should be enabled - Bug 760616 on Debian 8'
+    else
+      it { should be_enabled }
+    end
   end
 end
